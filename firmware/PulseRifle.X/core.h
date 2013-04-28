@@ -4,6 +4,8 @@
 #define SAMPLERATE 11025
 #define MAX_CALLBACK 10
 
+#define I2CTIMEOUT 1000
+
 typedef void (*voidfunc) ();
 
 #define IO0 0

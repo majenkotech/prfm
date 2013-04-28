@@ -638,24 +638,28 @@ void initI2C()
 
 void i2c_startTransfer(unsigned char restart)
 {
+    unsigned long timeout;
     I2C_STATUS status;
     if (restart) {
         I2CRepeatStart(I2C5);
     } else {
-        while( !I2CBusIsIdle(I2C5) ); 
+        timeout = I2CTIMEOUT;
+        while( (!I2CBusIsIdle(I2C5)) && (--timeout > 0)); 
+        if (timeout == 0) return;
     }
+    timeout = I2CTIMEOUT;
     do
     {
         status = I2CGetStatus(I2C5);
 
-    } while ( !(status & I2C_START) );
+    } while ( (!(status & I2C_START)) && (--timeout > 0));
 }
 
 void i2c_transmitOneByte(unsigned char data)
 {
     unsigned long timeout;
     // Wait for the transmitter to be ready
-    timeout = 1000;
+    timeout = I2CTIMEOUT;
     while((!I2CTransmitterIsReady(I2C5)) && (--timeout > 0));
     if (timeout == 0) return;
 
@@ -665,7 +669,7 @@ void i2c_transmitOneByte(unsigned char data)
     }
 
     // Wait for the transmission to finish
-    timeout = 1000;
+    timeout = I2CTIMEOUT;
     while((!I2CTransmissionHasCompleted(I2C5)) && (--timeout > 0));
     if (timeout == 0) return;
 
@@ -681,7 +685,7 @@ void i2c_stopTransfer()
     I2CStop(I2C5);
 
     // Wait for the signal to complete
-    timeout = 1000;
+    timeout = I2CTIMEOUT;
     do
     {
         status = I2CGetStatus(I2C5);
@@ -698,12 +702,12 @@ void i2c_transmit(unsigned char address, unsigned char *data, unsigned char len)
     I2C_FORMAT_7_BIT_ADDRESS(SlaveAddress, address, I2C_WRITE);
     i2c_startTransfer(1);
     i2c_transmitOneByte(SlaveAddress.byte);
-    timeout = 1000;
+    timeout = I2CTIMEOUT;
     while ((!I2CByteWasAcknowledged(I2C5)) && (--timeout > 0));
     if (timeout == 0) return;
     for (i=0; i<len; i++) {
         i2c_transmitOneByte(data[i]);
-        timeout = 1000;
+        timeout = I2CTIMEOUT;
         while ((!I2CByteWasAcknowledged(I2C5)) && (--timeout > 0));
         if (timeout == 0) return;
     }
