@@ -1,0 +1,3 @@
+mphidflash.command_linux=linux/pic32prog -p %H
+mphidflash.command=mphidflash %V -r -w %H
+
