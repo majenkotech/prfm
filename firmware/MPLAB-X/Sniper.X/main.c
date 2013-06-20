@@ -256,7 +256,7 @@ int main(void)
     initCore();
 
     // Start up audio playback at 11025 Hz sample rate
-    initPlayback(11025);
+    initPlayback(11025, 1);
 
     // Enable the LED display
     initDisplay();

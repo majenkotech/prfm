@@ -63,6 +63,7 @@ const unsigned char slaveDigits[] = {
 
 unsigned char slaveDP[8];
 
+volatile unsigned char playbackGain = 1;
 
 volatile unsigned char dp = 0;
 
@@ -147,6 +148,24 @@ void queueSample(const short *sample, int length, int delay, int speed)
             samples[i].pos = 0;
             samples[i].speed = speed;
             samples[i].spos = 0;
+            samples[i].volume = 255;
+            return;
+        }
+    }
+}
+
+void queueSampleVol(const short *sample, int length, int delay, int speed, unsigned char volume)
+{
+    int i;
+    for (i=0; i<MAX_SAMPLES; i++) {
+        if (samples[i].sample == NULL) {
+            samples[i].sample = (short *)sample;
+            samples[i].len = length;
+            samples[i].delay = delay;
+            samples[i].pos = 0;
+            samples[i].speed = speed;
+            samples[i].spos = 0;
+            samples[i].volume = volume;
             return;
         }
     }
@@ -166,6 +185,20 @@ void queueSingleSample(const short *sample, int length, int delay, int speed)
     }
 }
 
+void queueSingleSampleVol(const short *sample, int length, int delay, int speed, unsigned char volume)
+{
+    int i;
+    int found = 0;
+    for (i=0; i<MAX_SAMPLES; i++) {
+        if (samples[i].sample == sample) {
+            found = 1;
+        }
+    }
+    if (found == 0) {
+        queueSampleVol(sample, length, delay, speed, volume);
+    }
+}
+
 inline void sendSample(register int sample)
 {
     static int lastsample = 0;
@@ -178,7 +211,11 @@ inline void sendSample(register int sample)
     sample = sample + 32768;
     sample = sample >> 4;
     sample = sample & 0x0FFF;
-    sample = sample | 0x3000;
+    if (playbackGain) {
+        sample = sample | 0x3000;
+    } else {
+        sample = sample | 0x1000;
+    }
     SPI2BUF = sample;
 }
 
@@ -281,8 +318,9 @@ void __ISR(_TIMER_5_VECTOR, ipl2) _T5Interrupt(void)
     mT5ClearIntFlag();
 }
 
-void initPlayback(int sr)
+void initPlayback(int sr, unsigned char gain)
 {
+    playbackGain = gain;
     // Sample Playback Timer
     OpenTimer1( T1_ON | T1_SOURCE_INT | T1_PS_1_256, (80000000 / 256) / sr);
     ConfigIntTimer1( T1_INT_ON | T1_INT_PRIOR_3);
@@ -298,11 +336,29 @@ void initPlayback(int sr)
     INTEnableSystemMultiVectoredInt();
 }
 
+int mix(int a, int b)
+{
+    int z;
+    unsigned int fa, fb, fz;
+    fa = a + 32768;
+    fb = b + 32768;
+
+    if (fa < 32768 && fb < 32768) {
+        fz = (fa * fb) / 32768;
+    } else {
+        fz = (2 * (fa + fb)) - ((fa * fb) / 32768) - 65536;
+    }
+
+    z = fz - 32768;
+    return z;
+}
+
 void __ISR(_TIMER_1_VECTOR, ipl3) _T1Interrupt(void)
 {
     register int val = 0;
     register int i;
     register struct sample *s;
+    register int tmp;
 
     for (i=0; i<MAX_SAMPLES; i++) {
         s = &samples[i];
@@ -310,7 +366,12 @@ void __ISR(_TIMER_1_VECTOR, ipl3) _T1Interrupt(void)
             if (s->delay > 0) {
                 s->delay--;
             } else {
-                val += s->sample[s->pos];
+                
+                tmp = s->sample[s->pos];
+                if (s->volume != 255) {
+                    tmp = (tmp * s->volume) / 255;
+                }
+                val = mix(val, tmp);
                 s->pos++;
 
                 s->spos += s->speed;
@@ -330,7 +391,6 @@ void __ISR(_TIMER_1_VECTOR, ipl3) _T1Interrupt(void)
         }
     }
 
-    val = val >> 2;
     if (val < -32768) {
         val = -32768;
     }

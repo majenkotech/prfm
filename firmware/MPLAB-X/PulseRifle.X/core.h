@@ -36,6 +36,7 @@ struct sample {
     int pos;
     int speed;
     int spos;
+    unsigned char volume;
 };
 
 #define MAX_SAMPLES 28
@@ -104,9 +105,11 @@ extern void setAnalog(int in);
 extern void tieInput(int in, void (*func)(int, int));
 extern int readInput(int i);
 extern void queueSample(const short *sample, int length, int delay, int speed);
+extern void queueSampleVol(const short *sample, int length, int delay, int speed, unsigned char volume);
 extern void queueSingleSample(const short *sample, int length, int delay, int speed);
+extern void queueSingleSampleVol(const short *sample, int length, int delay, int speed, unsigned char volume);
 extern inline void sendSample(register int sample);
-extern void initPlayback(int sr);
+extern void initPlayback(int sr, unsigned char gain);
 extern void initAutofire(int in, int speed, void (*func)(int, int));
 extern void setAFSpeed(int speed);
 

@@ -100,6 +100,9 @@
 #define B_GL_PRIME IO3
 #endif
 
+#define PR_VOL_MAX 255
+#define PR_VOL_FADE 0
+
 // A speed modification value for pulse rifle sample playback
 volatile int pr_speed = 0;
 volatile int pr_original_speed = 0;
@@ -128,6 +131,8 @@ volatile int display_info = 0;
 
 volatile int display_timeout = 0;
 
+volatile unsigned char pr_vol = 255;
+
 // This is tied to the initial pulling of the trigger.
 // A random playback speed is selected for the pulse rifle
 // firing sample.
@@ -138,6 +143,7 @@ void pr_init(int in, int v)
         pr_original_speed = pr_speed;
         shots_fired = 0;
         display_mode = DISP_PR;
+        pr_vol = PR_VOL_MAX;
     }
 }
 
@@ -186,11 +192,12 @@ void pr_fire(int in, int v)
 #endif
     } else {
 #ifndef PR_SOUND_DISABLED
-        queueSample(pr, pr_len, 0, pr_speed);
+        queueSampleVol(pr, pr_len, 0, pr_speed, pr_vol);
 #endif
         shots_fired++;
         set_pr_ammo(pr_ammo - 1);
         if ((shots_fired >= PR_BEND_START) && (shots_fired < PR_BEND_START+PR_BEND_LEN)) {
+            pr_vol = pr_vol - PR_VOL_FADE;
             if (pr_original_speed >= -4) {
                 pr_speed -= PR_BEND_SPEED;
             } else {
@@ -365,7 +372,7 @@ int main(void)
     initCore();
 
     // Start up audio playback at 11025 Hz sample rate
-    initPlayback(11025);
+    initPlayback(11025,1);
 
     // Enable the LED display
     initDisplay();
